@@ -1,5 +1,5 @@
 python main.py \
---json_list='/home/yusongli/Documents/shidaoai_new_project/data/meta_data2.yaml' \
+--json_list='/home/yusongli/Documents/research-contributions/UNETR/BTCV/dataset/meta_data2.yaml' \
 --gpu=0 \
 --max_epochs=100 \
 --roi_x=96 \
@@ -11,3 +11,4 @@ python main.py \
 --testset_cache_num=264 \
 --a_min=0 \
 --a_max=1500 \
+--use_normal_dataset \

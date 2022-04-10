@@ -145,7 +145,7 @@ def save_checkpoint(model, epoch, args, filename='model.pt', best_acc=0, optimiz
 def run_training(
     model: torch.nn.Module,
     train_loader: torch.utils.data.DataLoader,
-    val_loader: torch.utils.data.Dataloader,
+    val_loader: torch.utils.data.DataLoader,
     optimizer: torch.optim.Optimizer,
     loss_func: torch.nn.Module,
     acc_func: Callable,

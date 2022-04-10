@@ -16,10 +16,12 @@ import torch
 import monai
 from monai import transforms, data
 import argparse
+from typing import List, Tuple
 
 from thesmuggler import smuggle
 
 dl = smuggle('/home/yusongli/Documents/shidaoai_new_project/networks/yusongli/dataloader.py')
+pp = smuggle('/home/yusongli/Documents/shidaoai_new_project/data/pathparser.py')
 
 
 class Sampler(torch.utils.data.Sampler):
@@ -75,7 +77,7 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
     datalist_json = args.json_list
     train_transform = transforms.Compose(
         [
-            dl.LoadImaged(keys=["image", "label"]),
+            dl.LoadImaged(keys=["image", "label"], func=yusongli_load_data),
             transforms.AddChanneld(keys=["image", "label"]),
             transforms.Orientationd(keys=["image", "label"], axcodes="RAS"),
             transforms.Spacingd(
@@ -106,7 +108,7 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
     )
     val_transform = transforms.Compose(
         [
-            dl.LoadImaged(keys=["image", "label"]),
+            dl.LoadImaged(keys=["image", "label"], func=yusongli_load_data),
             transforms.AddChanneld(keys=["image", "label"]),
             transforms.Orientationd(keys=["image", "label"], axcodes="RAS"),
             transforms.Spacingd(
@@ -195,7 +197,20 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
         return [train_loader, val_loader]
 
 
-if __name__ == "__main__":
-    import ipdb
+_datapath = '/home/yusongli/Public/sda1/_dataset/shidaoai/img/_out'
 
-    ipdb.set_trace()  # ! debug yusongli
+
+def yusongli_load_data(yamlmetadata: List) -> Tuple[str]:
+    _key, _where, _who, _number, _name = yamlmetadata[1:6]
+    if _key == 'image':
+        objpath = f'{_datapath}/wangqifeng-spacial/{_where}/{_who}/{_number}/{_name}'
+    elif _key == 'label':
+        objpath = f'{_datapath}/wangqifeng-spacial-dilated-maskonly/{_where}/{_who}/{_number}/{_name}'
+    return (objpath,)
+
+
+if __name__ == '__main__':
+    yamlmetadata2 = '/home/yusongli/Documents/research-contributions/UNETR/BTCV/dataset/meta_data2.yaml'
+    with open(yamlmetadata2, 'r') as j:
+        yamlmetadata = pp.yaml.load(j)
+    yusongli_load_data(yamlmetadata['training'][0]['label'])
