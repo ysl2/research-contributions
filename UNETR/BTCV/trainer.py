@@ -20,6 +20,8 @@ import torch.nn.parallel
 from utils.utils import distributed_all_gather
 import torch.utils.data.distributed
 from monai.data import decollate_batch
+from typing import Callable, Optional
+import argparse
 
 
 def dice(x, y):
@@ -79,10 +81,11 @@ def train_epoch(model, loader, optimizer, scaler, epoch, loss_func, args):
             run_loss.update(loss.item(), n=args.batch_size)
         if args.rank == 0:
             print(
-                'Epoch {}/{} {}/{}'.format(epoch, args.max_epochs, idx, len(loader)),
+                f'Epoch {epoch}/{args.max_epochs} {idx}/{len(loader)}',
                 'loss: {:.4f}'.format(run_loss.avg),
                 'time {:.2f}s'.format(time.time() - start_time),
             )
+
         start_time = time.time()
     for param in model.parameters():
         param.grad = None
@@ -100,10 +103,7 @@ def val_epoch(model, loader, epoch, acc_func, args, model_inferer=None, post_lab
                 data, target = batch_data['image'], batch_data['label']
             data, target = data.cuda(args.rank), target.cuda(args.rank)
             with autocast(enabled=args.amp):
-                if model_inferer is not None:
-                    logits = model_inferer(data)
-                else:
-                    logits = model(data)
+                logits = model_inferer(data) if model_inferer is not None else model(data)
             if not logits.is_cuda:
                 target = target.cpu()
             val_labels_list = decollate_batch(target)
@@ -115,11 +115,9 @@ def val_epoch(model, loader, epoch, acc_func, args, model_inferer=None, post_lab
 
             if args.distributed:
                 acc_list = distributed_all_gather([acc], out_numpy=True, is_valid=idx < loader.sampler.valid_length)
-                avg_acc = np.mean([np.nanmean(l) for l in acc_list])
-
             else:
                 acc_list = acc.detach().cpu().numpy()
-                avg_acc = np.mean([np.nanmean(l) for l in acc_list])
+            avg_acc = np.mean([np.nanmean(l) for l in acc_list])
 
             if args.rank == 0:
                 print(
@@ -133,7 +131,7 @@ def val_epoch(model, loader, epoch, acc_func, args, model_inferer=None, post_lab
 
 
 def save_checkpoint(model, epoch, args, filename='model.pt', best_acc=0, optimizer=None, scheduler=None):
-    state_dict = model.state_dict() if not args.distributed else model.module.state_dict()
+    state_dict = model.module.state_dict() if args.distributed else model.state_dict()
     save_dict = {'epoch': epoch, 'best_acc': best_acc, 'state_dict': state_dict}
     if optimizer is not None:
         save_dict['optimizer'] = optimizer.state_dict()
@@ -146,27 +144,24 @@ def save_checkpoint(model, epoch, args, filename='model.pt', best_acc=0, optimiz
 
 def run_training(
     model: torch.nn.Module,
-    train_loader,
-    val_loader,
-    optimizer,
-    loss_func,
-    acc_func,
-    args,
-    model_inferer=None,
-    scheduler=None,
-    start_epoch=0,
-    post_label=None,
-    post_pred=None,
+    train_loader: torch.utils.data.DataLoader,
+    val_loader: torch.utils.data.Dataloader,
+    optimizer: torch.optim.Optimizer,
+    loss_func: torch.nn.Module,
+    acc_func: Callable,
+    args: argparse.ArgumentParser,
+    model_inferer: Optional[Callable] = None,
+    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+    start_epoch: Optional[int] = 0,
+    post_label: Optional[object] = None,
+    post_pred: Optional[object] = None,
 ):
-    import ipdb; ipdb.set_trace()  # ! debug yusongli
     writer = None
     if args.logdir is not None and args.rank == 0:
         writer = SummaryWriter(log_dir=args.logdir)
         if args.rank == 0:
             print('Writing Tensorboard logs to ', args.logdir)
-    scaler = None
-    if args.amp:
-        scaler = GradScaler()
+    scaler = GradScaler() if args.amp else None
     val_acc_max = 0.0
     for epoch in range(start_epoch, args.max_epochs):
         if args.distributed:
@@ -179,10 +174,11 @@ def run_training(
         )
         if args.rank == 0:
             print(
-                'Final training  {}/{}'.format(epoch, args.max_epochs - 1),
+                f'Final training  {epoch}/{args.max_epochs - 1}',
                 'loss: {:.4f}'.format(train_loss),
                 'time {:.2f}s'.format(time.time() - epoch_time),
             )
+
         if args.rank == 0 and writer is not None:
             writer.add_scalar('train_loss', train_loss, epoch)
         b_new_best = False
@@ -202,11 +198,12 @@ def run_training(
             )
             if args.rank == 0:
                 print(
-                    'Final validation  {}/{}'.format(epoch, args.max_epochs - 1),
+                    f'Final validation  {epoch}/{args.max_epochs - 1}',
                     'acc',
                     val_avg_acc,
                     'time {:.2f}s'.format(time.time() - epoch_time),
                 )
+
                 if writer is not None:
                     writer.add_scalar('val_acc', val_avg_acc, epoch)
                 if val_avg_acc > val_acc_max:
@@ -229,4 +226,3 @@ def run_training(
     print('Training Finished !, Best Accuracy: ', val_acc_max)
 
     return val_acc_max
-

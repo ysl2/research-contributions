@@ -19,11 +19,17 @@ from trainer import dice
 import argparse
 
 parser = argparse.ArgumentParser(description='UNETR segmentation pipeline')
-parser.add_argument('--pretrained_dir', default='./pretrained_models/', type=str, help='pretrained checkpoint directory')
+parser.add_argument(
+    '--pretrained_dir', default='./pretrained_models/', type=str, help='pretrained checkpoint directory'
+)
 parser.add_argument('--data_dir', default='/dataset/dataset0/', type=str, help='dataset directory')
 parser.add_argument('--json_list', default='dataset_0.json', type=str, help='dataset json file')
-parser.add_argument('--pretrained_model_name', default='UNETR_model_best_acc.pth', type=str, help='pretrained model name')
-parser.add_argument('--saved_checkpoint', default='ckpt', type=str, help='Supports torchscript or ckpt pretrained checkpoint type')
+parser.add_argument(
+    '--pretrained_model_name', default='UNETR_model_best_acc.pth', type=str, help='pretrained model name'
+)
+parser.add_argument(
+    '--saved_checkpoint', default='ckpt', type=str, help='Supports torchscript or ckpt pretrained checkpoint type'
+)
 parser.add_argument('--mlp_dim', default=3072, type=int, help='mlp dimention in ViT encoder')
 parser.add_argument('--hidden_size', default=768, type=int, help='hidden size dimention in ViT encoder')
 parser.add_argument('--feature_size', default=16, type=int, help='feature size dimention')
@@ -53,6 +59,7 @@ parser.add_argument('--RandShiftIntensityd_prob', default=0.1, type=float, help=
 parser.add_argument('--pos_embed', default='perceptron', type=str, help='type of position embedding')
 parser.add_argument('--norm_name', default='instance', type=str, help='normalization layer type in decoder')
 
+
 def main():
     args = parser.parse_args()
     args.test_mode = True
@@ -76,7 +83,8 @@ def main():
             norm_name=args.norm_name,
             conv_block=True,
             res_block=True,
-            dropout_rate=args.dropout_rate)
+            dropout_rate=args.dropout_rate,
+        )
         model_dict = torch.load(pretrained_pth)
         model.load_state_dict(model_dict)
     model.eval()
@@ -88,11 +96,7 @@ def main():
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
             img_name = batch['image_meta_dict']['filename_or_obj'][0].split('/')[-1]
             print("Inference on case {}".format(img_name))
-            val_outputs = sliding_window_inference(val_inputs,
-                                                   (96, 96, 96),
-                                                   4,
-                                                   model,
-                                                   overlap=args.infer_overlap)
+            val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model, overlap=args.infer_overlap)
             val_outputs = torch.softmax(val_outputs, 1).cpu().numpy()
             val_outputs = np.argmax(val_outputs, axis=1).astype(np.uint8)
             val_labels = val_labels.cpu().numpy()[:, 0, :, :, :]
@@ -104,6 +108,7 @@ def main():
             print("Mean Organ Dice: {}".format(mean_dice))
             dice_list_case.append(mean_dice)
         print("Overall Mean Dice: {}".format(np.mean(dice_list_case)))
+
 
 if __name__ == '__main__':
     main()

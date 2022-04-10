@@ -27,6 +27,7 @@ from monai.metrics import DiceMetric
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
 from functools import partial
+import contextlib
 
 
 parser = argparse.ArgumentParser(description='UNETR segmentation pipeline')
@@ -123,10 +124,14 @@ def main_worker(args: argparse.ArgumentParser) -> None:
         dist.init_process_group(
             backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
         )
-    torch.cuda.set_device(args.gpu)
+    with contextlib.suppress(Exception):
+        torch.cuda.set_device(args.gpu)
     torch.backends.cudnn.benchmark = True
     args.test_mode = False
-    loader = get_loader(args)
+    try:
+        loader = get_loader(args)
+    except Exception:
+        loader = [None, None]
     print(f'args.rank: {args.rank}, args.gpu: {args.gpu}')
     if args.rank == 0:
         print('Batch size is:', args.batch_size, 'epochs', args.max_epochs)
@@ -194,7 +199,8 @@ def main_worker(args: argparse.ArgumentParser) -> None:
             best_acc = checkpoint['best_acc']
         print(f"=> loaded checkpoint '{args.checkpoint}' (epoch {start_epoch}) (bestacc {best_acc})")
 
-    model.cuda(args.gpu)
+    with contextlib.suppress(Exception):
+        model.cuda(args.gpu)
 
     if args.distributed:
         torch.cuda.set_device(args.gpu)
