@@ -22,7 +22,7 @@ from trainer import run_training
 from optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from networks.unetr import UNETR
 from monai.utils.enums import MetricReduction
-from monai.transforms import AsDiscrete
+from monai.transforms import AsDiscrete, Compose, Invertd
 from monai.metrics import DiceMetric
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
@@ -168,8 +168,13 @@ def main_worker(args: argparse.ArgumentParser) -> None:
     dice_loss = DiceCELoss(
         to_onehot_y=True, softmax=True, squared_pred=True, smooth_nr=args.smooth_nr, smooth_dr=args.smooth_dr
     )
-    post_label = AsDiscrete(to_onehot=True, n_classes=args.out_channels)
-    post_pred = AsDiscrete(argmax=True, to_onehot=True, n_classes=args.out_channels)
+    import ipdb; ipdb.set_trace()  # ! debug yusongli
+    post_label = AsDiscrete(to_onehot=args.out_channels, n_classes=args.out_channels)
+    post_pred = AsDiscrete(argmax=True, to_onehot=args.out_channels, n_classes=args.out_channels)
+    # post_label = Compose([
+    #     AsDiscrete(to_onehot=args.out_channels, n_classes=args.out_channels),
+    #     Invertd(invert_channels=args.out_channels),
+    # ])
     dice_acc = DiceMetric(include_background=True, reduction=MetricReduction.MEAN, get_not_nans=True)
     model_inferer = partial(
         sliding_window_inference,

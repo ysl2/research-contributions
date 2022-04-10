@@ -9,6 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import os
 import time
 import shutil
@@ -34,23 +35,24 @@ def dice(x, y):
 
 
 class AverageMeter(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.val = 0
         self.avg = 0
         self.sum = 0
         self.count = 0
 
-    def update(self, val, n=1):
+    def update(self, val, n: Optional[int] = 1) -> None:
         self.val = val
         self.sum += val * n
         self.count += n
         self.avg = np.where(self.count > 0, self.sum / self.count, self.sum)
 
 
-def train_epoch(model, loader, optimizer, scaler, epoch, loss_func, args):
+def train_epoch(model, loader, optimizer, scaler, epoch, loss_func, args) -> float:
+    return 0.1
     model.train()
     start_time = time.time()
     run_loss = AverageMeter()
@@ -59,7 +61,8 @@ def train_epoch(model, loader, optimizer, scaler, epoch, loss_func, args):
             data, target = batch_data
         else:
             data, target = batch_data['image'], batch_data['label']
-        data, target = data.cuda(args.rank), target.cuda(args.rank)
+        with contextlib.suppress(Exception):
+            data, target = data.cuda(args.rank), target.cuda(args.rank)
         for param in model.parameters():
             param.grad = None
         with autocast(enabled=args.amp):
@@ -101,12 +104,14 @@ def val_epoch(model, loader, epoch, acc_func, args, model_inferer=None, post_lab
                 data, target = batch_data
             else:
                 data, target = batch_data['image'], batch_data['label']
-            data, target = data.cuda(args.rank), target.cuda(args.rank)
+            with contextlib.suppress(Exception):
+                data, target = data.cuda(args.rank), target.cuda(args.rank)
             with autocast(enabled=args.amp):
                 logits = model_inferer(data) if model_inferer is not None else model(data)
             if not logits.is_cuda:
                 target = target.cpu()
             val_labels_list = decollate_batch(target)
+            import ipdb; ipdb.set_trace()  # ! debug yusongli
             val_labels_convert = [post_label(val_label_tensor) for val_label_tensor in val_labels_list]
             val_outputs_list = decollate_batch(logits)
             val_output_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]

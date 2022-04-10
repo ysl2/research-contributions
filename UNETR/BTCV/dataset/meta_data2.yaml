@@ -1,0 +1,269 @@
+"training":
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liutong"
+  - "306865"
+  - "306865_CT.nii.gz"
+  - &id001
+    - !!int "87"
+    - !!int "94"
+    - !!int "64"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liutong"
+  - "306865"
+  - "306865_GTV-T_MASK.nii.gz"
+  - *id001
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liutong"
+  - "104049"
+  - "104049_CT.nii.gz"
+  - &id002
+    - !!int "85"
+    - !!int "89"
+    - !!int "50"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liutong"
+  - "104049"
+  - "104049_GTV-T_MASK.nii.gz"
+  - *id002
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liutong"
+  - "111974"
+  - "111974_CT.nii.gz"
+  - &id003
+    - !!int "85"
+    - !!int "92"
+    - !!int "56"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liutong"
+  - "111974"
+  - "111974_GTV-T_MASK.nii.gz"
+  - *id003
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liyong"
+  - "98746"
+  - "98746_CT.nii.gz"
+  - &id004
+    - !!int "71"
+    - !!int "77"
+    - !!int "41"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liyong"
+  - "98746"
+  - "98746_GTV-T_MASK.nii.gz"
+  - *id004
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liutong"
+  - "308201"
+  - "308201_CT.nii.gz"
+  - &id005
+    - !!int "92"
+    - !!int "91"
+    - !!int "53"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liutong"
+  - "308201"
+  - "308201_GTV-T_MASK.nii.gz"
+  - *id005
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liutong"
+  - "158037"
+  - "158037_CT.nii.gz"
+  - &id006
+    - !!int "83"
+    - !!int "84"
+    - !!int "43"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liutong"
+  - "158037"
+  - "158037_GTV-T_MASK.nii.gz"
+  - *id006
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "zhangchi"
+  - "295705"
+  - "295705_CT.nii.gz"
+  - &id007
+    - !!int "95"
+    - !!int "89"
+    - !!int "56"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "zhangchi"
+  - "295705"
+  - "295705_GTV-T_MASK.nii.gz"
+  - *id007
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liutong"
+  - "233845"
+  - "233845_CT.nii.gz"
+  - &id008
+    - !!int "84"
+    - !!int "85"
+    - !!int "43"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liutong"
+  - "233845"
+  - "233845_GTV-T_MASK.nii.gz"
+  - *id008
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "fanxingcheng"
+  - "163401"
+  - "163401_CT.nii.gz"
+  - &id009
+    - !!int "89"
+    - !!int "89"
+    - !!int "75"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "fanxingcheng"
+  - "163401"
+  - "163401_GTV-T_MASK.nii.gz"
+  - *id009
+- "image":
+  - "training"
+  - "image"
+  - "sichuan"
+  - "liutong"
+  - "295530"
+  - "295530_CT.nii.gz"
+  - &id010
+    - !!int "72"
+    - !!int "84"
+    - !!int "60"
+  "label":
+  - "training"
+  - "label"
+  - "sichuan"
+  - "liutong"
+  - "295530"
+  - "295530_GTV-T_MASK.nii.gz"
+  - *id010
+"validation":
+- "image":
+  - "validation"
+  - "image"
+  - "sichuan"
+  - "yanxiang"
+  - "92781"
+  - "92781_CT.nii.gz"
+  - &id1333
+    - !!int "85"
+    - !!int "78"
+    - !!int "26"
+  "label":
+  - "validation"
+  - "label"
+  - "sichuan"
+  - "yanxiang"
+  - "92781"
+  - "92781_GTV-T_MASK.nii.gz"
+  - *id1333
+- "image":
+  - "validation"
+  - "image"
+  - "sichuan"
+  - "yanxiang"
+  - "118997"
+  - "118997_CT.nii.gz"
+  - &id1334
+    - !!int "86"
+    - !!int "74"
+    - !!int "46"
+  "label":
+  - "validation"
+  - "label"
+  - "sichuan"
+  - "yanxiang"
+  - "118997"
+  - "118997_GTV-T_MASK.nii.gz"
+  - *id1334
+"test":
+- "image":
+  - "test"
+  - "image"
+  - "beijing"
+  - "G-L"
+  - "936044"
+  - "936044_CT.nii.gz"
+  - &id1665
+    - !!int "82"
+    - !!int "79"
+    - !!int "39"
+  "label":
+  - "test"
+  - "label"
+  - "beijing"
+  - "G-L"
+  - "936044"
+  - "936044_GTV T_MASK.nii.gz"
+  - *id1665
+- "image":
+  - "test"
+  - "image"
+  - "beijing"
+  - "G-L"
+  - "954839-101117"
+  - "954839-101117_CT.nii.gz"
+  - &id1666
+    - !!int "81"
+    - !!int "85"
+    - !!int "44"
+  "label":
+  - "test"
+  - "label"
+  - "beijing"
+  - "G-L"
+  - "954839-101117"
+  - "954839-101117_GTV T_MASK.nii.gz"
+  - *id1666
