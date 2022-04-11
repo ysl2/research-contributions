@@ -21,13 +21,14 @@ from utils.data_utils import yusongli_save_pred
 import torch.utils.data.distributed
 from monai.data import decollate_batch
 from typing import Callable, Optional
+from numpy.typing import ArrayLike
 import argparse
 import pathlib
 from monai.data import write_nifti
 from tqdm.auto import tqdm
 
 
-def dice(x, y):
+def dice(x: ArrayLike, y: ArrayLike):
     intersect = np.sum(np.sum(np.sum(x * y)))
     y_sum = np.sum(np.sum(np.sum(y)))
     if y_sum == 0:
@@ -75,9 +76,6 @@ def train_epoch(model, loader, optimizer, scheduler, scaler, epoch, loss_func, a
         else:
             loss.backward()
             optimizer.step()
-
-        if scheduler is not None:
-            scheduler.step()
 
         if args.distributed:
             loss_list = distributed_all_gather([loss], out_numpy=True, is_valid=idx < loader.sampler.valid_length)
@@ -182,6 +180,8 @@ def run_training(
             loss_func=loss_func,
             args=args,
         )
+        if scheduler is not None:
+            scheduler.step()
 
         if args.rank == 0 and writer is not None:
             writer.add_scalar('train_loss', train_loss, epoch)
