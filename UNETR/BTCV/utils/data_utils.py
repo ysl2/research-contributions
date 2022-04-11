@@ -17,6 +17,7 @@ import monai
 from monai import transforms, data
 import argparse
 from typing import List, Tuple
+import os
 
 from thesmuggler import smuggle
 
@@ -79,6 +80,7 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
         [
             dl.LoadImaged(keys=["image", "label"], func=yusongli_load_data),
             transforms.AddChanneld(keys=["image", "label"]),
+            # transforms.Resized(keys=['image', 'label'], spatial_size=[args.roi_x, args.roi_y, args.roi_z]),
             transforms.Orientationd(keys=["image", "label"], axcodes="RAS"),
             transforms.Spacingd(
                 keys=["image", "label"], pixdim=(args.space_x, args.space_y, args.space_z), mode=("bilinear", "nearest")
@@ -110,6 +112,7 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
         [
             dl.LoadImaged(keys=["image", "label"], func=yusongli_load_data),
             transforms.AddChanneld(keys=["image", "label"]),
+            # transforms.Resized(keys=['image', 'label'], spatial_size=[args.roi_x, args.roi_y, args.roi_z]),
             transforms.Orientationd(keys=["image", "label"], axcodes="RAS"),
             transforms.Spacingd(
                 keys=["image", "label"], pixdim=(args.space_x, args.space_y, args.space_z), mode=("bilinear", "nearest")
@@ -137,15 +140,19 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
             )
         )
         test_sampler = Sampler(test_ds, shuffle=False) if args.distributed else None
-        return data.DataLoader(
-            test_ds,
-            batch_size=1,
-            shuffle=False,
-            num_workers=args.workers,
-            sampler=test_sampler,
-            pin_memory=True,
-            persistent_workers=True,
-        )
+        return [
+            data.DataLoader(
+                test_ds,
+                batch_size=1,
+                shuffle=False,
+                num_workers=args.workers,
+                sampler=test_sampler,
+                pin_memory=True,
+                persistent_workers=True,
+            ),
+            train_transform,
+            val_transform,
+        ]
 
     else:
         datalist = dl.load_decathlon_datalist(datalist_json, True, "training", base_dir=data_dir)
@@ -194,19 +201,38 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
             pin_memory=True,
             persistent_workers=True,
         )
-        return [train_loader, val_loader]
+        return [train_loader, val_loader, train_transform, val_transform]
 
 
-_datapath = '/home/yusongli/Public/sda1/_dataset/shidaoai/img/_out'
+_DATAPATH = '/home/yusongli/Public/sda1/_dataset/shidaoai/img/_out'
+
+
+def yusongli_rootdir(args: argparse.ArgumentParser) -> str:
+    return os.path.join(
+        f'{_DATAPATH}',
+        f'wangqifeng-spacial-dilated-net_{args.model_name}_val',
+    )
 
 
 def yusongli_load_data(yamlmetadata: List) -> Tuple[str]:
     _key, _where, _who, _number, _name = yamlmetadata[1:6]
     if _key == 'image':
-        objpath = f'{_datapath}/wangqifeng-spacial/{_where}/{_who}/{_number}/{_name}'
+        objpath = f'{_DATAPATH}/wangqifeng-spacial/{_where}/{_who}/{_number}/{_name}'
     elif _key == 'label':
-        objpath = f'{_datapath}/wangqifeng-spacial-dilated-maskonly/{_where}/{_who}/{_number}/{_name}'
+        objpath = f'{_DATAPATH}/wangqifeng-spacial-dilated-maskonly/{_where}/{_who}/{_number}/{_name}'
     return (objpath,)
+
+
+def yusongli_save_pred(yamlmetadata: List, epoch: int, rootdir: str) -> str:
+    for i in range(len(yamlmetadata)):
+        if isinstance(yamlmetadata[i], tuple):
+            yamlmetadata[i] = yamlmetadata[i][0]
+    _where, _who, _number, _name = yamlmetadata[2:6]
+
+    return os.path.join(
+        f'{rootdir}',
+        f'{epoch:02d}/{_where}/{_who}/{_number}/{_name}.nii.gz'
+    )
 
 
 if __name__ == '__main__':

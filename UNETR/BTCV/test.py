@@ -60,7 +60,7 @@ parser.add_argument('--pos_embed', default='perceptron', type=str, help='type of
 parser.add_argument('--norm_name', default='instance', type=str, help='normalization layer type in decoder')
 
 
-def main():
+def main() -> None:
     args = parser.parse_args()
     args.test_mode = True
     val_loader = get_loader(args)
@@ -95,7 +95,7 @@ def main():
         for i, batch in enumerate(val_loader):
             val_inputs, val_labels = (batch["image"].cuda(), batch["label"].cuda())
             img_name = batch['image_meta_dict']['filename_or_obj'][0].split('/')[-1]
-            print("Inference on case {}".format(img_name))
+            print(f'Inference on case {img_name}')
             val_outputs = sliding_window_inference(val_inputs, (96, 96, 96), 4, model, overlap=args.infer_overlap)
             val_outputs = torch.softmax(val_outputs, 1).cpu().numpy()
             val_outputs = np.argmax(val_outputs, axis=1).astype(np.uint8)
@@ -105,9 +105,9 @@ def main():
                 organ_Dice = dice(val_outputs[0] == i, val_labels[0] == i)
                 dice_list_sub.append(organ_Dice)
             mean_dice = np.mean(dice_list_sub)
-            print("Mean Organ Dice: {}".format(mean_dice))
+            print(f'Mean Organ Dice: {mean_dice}')
             dice_list_case.append(mean_dice)
-        print("Overall Mean Dice: {}".format(np.mean(dice_list_case)))
+        print(f'Overall Mean Dice: {np.mean(dice_list_case)}')
 
 
 if __name__ == '__main__':

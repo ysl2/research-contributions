@@ -12,4 +12,7 @@ python main.py \
     --testset_cache_num=264 \
     --a_min=0 \
     --a_max=1500 \
-    --use_normal_dataset
+    --use_normal_dataset \
+    --workers=1 \
+    --val_every=1 \
+    --save_checkpoint

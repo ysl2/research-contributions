@@ -17,12 +17,12 @@ import torch
 import os
 import numpy as np
 import argparse
-from utils.data_utils import get_loader
+from utils.data_utils import get_loader, yusongli_rootdir
 from trainer import run_training
 from optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from networks.unetr import UNETR
 from monai.utils.enums import MetricReduction
-from monai.transforms import AsDiscrete, Compose, Invertd
+from monai.transforms import AsDiscrete, Invertd
 from monai.metrics import DiceMetric
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
@@ -32,7 +32,7 @@ import contextlib
 
 parser = argparse.ArgumentParser(description='UNETR segmentation pipeline')
 parser.add_argument('--checkpoint', default=None, help='start training from saved checkpoint')
-parser.add_argument('--logdir', default='test', type=str, help='directory to save the tensorboard logs')
+# parser.add_argument('--logdir', default=None, type=str, help='directory to save the tensorboard logs')
 parser.add_argument(
     '--pretrained_dir', default='./pretrained_models/', type=str, help='pretrained checkpoint directory'
 )
@@ -102,7 +102,7 @@ parser.add_argument('--smooth_nr', default=0.0, type=float, help='constant added
 def main() -> None:
     args = parser.parse_args()
     args.amp = not args.noamp
-    args.logdir = f'./runs/{args.logdir}'
+    args.logdir = yusongli_rootdir(args)
     if args.distributed:
         args.ngpus_per_node = torch.cuda.device_count()
         print('Found total gpus', args.ngpus_per_node)
@@ -120,7 +120,8 @@ def main_worker(args: argparse.ArgumentParser) -> None:
     np.set_printoptions(formatter={'float': '{: 0.3f}'.format}, suppress=True)
 
     if args.distributed:
-        args.rank = args.rank * args.ngpus_per_node + args.gpu
+        with contextlib.suppress(Exception):
+            args.rank = args.rank * args.ngpus_per_node + args.gpu
         dist.init_process_group(
             backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
         )
@@ -130,8 +131,10 @@ def main_worker(args: argparse.ArgumentParser) -> None:
     args.test_mode = False
     try:
         loader = get_loader(args)
+        val_transform = loader[-1]
     except Exception:
         loader = [None, None]
+        val_transform = None
     print(f'args.rank: {args.rank}, args.gpu: {args.gpu}')
     if args.rank == 0:
         print('Batch size is:', args.batch_size, 'epochs', args.max_epochs)
@@ -168,13 +171,11 @@ def main_worker(args: argparse.ArgumentParser) -> None:
     dice_loss = DiceCELoss(
         to_onehot_y=True, softmax=True, squared_pred=True, smooth_nr=args.smooth_nr, smooth_dr=args.smooth_dr
     )
-    import ipdb; ipdb.set_trace()  # ! debug yusongli
+
     post_label = AsDiscrete(to_onehot=args.out_channels, n_classes=args.out_channels)
     post_pred = AsDiscrete(argmax=True, to_onehot=args.out_channels, n_classes=args.out_channels)
-    # post_label = Compose([
-    #     AsDiscrete(to_onehot=args.out_channels, n_classes=args.out_channels),
-    #     Invertd(invert_channels=args.out_channels),
-    # ])
+    post_invert = Invertd(keys=['label', 'pred'], transform=val_transform, orig_keys='image')
+
     dice_acc = DiceMetric(include_background=True, reduction=MetricReduction.MEAN, get_not_nans=True)
     model_inferer = partial(
         sliding_window_inference,
@@ -232,8 +233,8 @@ def main_worker(args: argparse.ArgumentParser) -> None:
         )
     elif args.lrschedule == 'cosine_anneal':
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_epochs)
-        if args.checkpoint is not None:
-            scheduler.step(epoch=start_epoch)
+        # if args.checkpoint is not None:
+        #     scheduler.step(epoch=start_epoch)
     else:
         scheduler = None
     accuracy = run_training(
@@ -249,6 +250,7 @@ def main_worker(args: argparse.ArgumentParser) -> None:
         start_epoch=start_epoch,
         post_label=post_label,
         post_pred=post_pred,
+        post_invert=post_invert,
     )
     return accuracy
 
