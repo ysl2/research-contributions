@@ -22,12 +22,12 @@ from trainer import run_training
 from optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 from networks.unetr import UNETR
 from monai.utils.enums import MetricReduction
-from monai.transforms import AsDiscrete, Invertd
+from monai import transforms
 from monai.metrics import DiceMetric
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
 from functools import partial
-import contextlib
+# import contextlib
 
 
 parser = argparse.ArgumentParser(description='UNETR segmentation pipeline')
@@ -88,8 +88,8 @@ parser.add_argument('--roi_z', default=96, type=int, help='roi size in z directi
 parser.add_argument('--dropout_rate', default=0.0, type=float, help='dropout rate')
 parser.add_argument('--RandFlipd_prob', default=0.2, type=float, help='RandFlipd aug probability')
 parser.add_argument('--RandRotate90d_prob', default=0.2, type=float, help='RandRotate90d aug probability')
-parser.add_argument('--RandScaleIntensityd_prob', default=0.1, type=float, help='RandScaleIntensityd aug probability')
-parser.add_argument('--RandShiftIntensityd_prob', default=0.1, type=float, help='RandShiftIntensityd aug probability')
+# parser.add_argument('--RandScaleIntensityd_prob', default=0.1, type=float, help='RandScaleIntensityd aug probability')
+# parser.add_argument('--RandShiftIntensityd_prob', default=0.1, type=float, help='RandShiftIntensityd aug probability')
 parser.add_argument('--infer_overlap', default=0.5, type=float, help='sliding window inference overlap')
 parser.add_argument('--lrschedule', default='warmup_cosine', type=str, help='type of learning rate scheduler')
 parser.add_argument('--warmup_epochs', default=50, type=int, help='number of warmup epochs')
@@ -120,21 +120,17 @@ def main_worker(args: argparse.ArgumentParser) -> None:
     np.set_printoptions(formatter={'float': '{: 0.3f}'.format}, suppress=True)
 
     if args.distributed:
-        with contextlib.suppress(Exception):
-            args.rank = args.rank * args.ngpus_per_node + args.gpu
+        # with contextlib.suppress(Exception):
+        args.rank = args.rank * args.ngpus_per_node + args.gpu
         dist.init_process_group(
             backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size, rank=args.rank
         )
-    with contextlib.suppress(Exception):
-        torch.cuda.set_device(args.gpu)
+    # with contextlib.suppress(Exception):
+    torch.cuda.set_device(args.gpu)
     torch.backends.cudnn.benchmark = True
     args.test_mode = False
-    try:
-        loader = get_loader(args)
-        val_transform = loader[-1]
-    except Exception:
-        loader = [None, None]
-        val_transform = None
+    loader = get_loader(args)
+    val_transform = loader[-1]
     print(f'args.rank: {args.rank}, args.gpu: {args.gpu}')
     if args.rank == 0:
         print('Batch size is:', args.batch_size, 'epochs', args.max_epochs)
@@ -172,9 +168,14 @@ def main_worker(args: argparse.ArgumentParser) -> None:
         to_onehot_y=True, softmax=True, squared_pred=True, smooth_nr=args.smooth_nr, smooth_dr=args.smooth_dr
     )
 
-    post_label = AsDiscrete(to_onehot=args.out_channels, n_classes=args.out_channels)
-    post_pred = AsDiscrete(argmax=True, to_onehot=args.out_channels, n_classes=args.out_channels)
-    post_invert = Invertd(keys=['label', 'pred'], transform=val_transform, orig_keys='image')
+    post_label = transforms.AsDiscrete(argmax=True, to_onehot=args.out_channels, n_classes=args.out_channels)
+    post_pred = transforms.Compose(
+        [
+            transforms.AsDiscrete(to_onehot=args.out_channels, n_classes=args.out_channels),
+            transforms.KeepLargestConnectedComponentd(keys=['pred'], applied_labels=1),
+        ]
+    ),
+    post_invert = transforms.Invertd(keys=['label', 'pred'], transform=val_transform, orig_keys='label')
 
     dice_acc = DiceMetric(include_background=True, reduction=MetricReduction.MEAN, get_not_nans=True)
     model_inferer = partial(
@@ -205,8 +206,8 @@ def main_worker(args: argparse.ArgumentParser) -> None:
             best_acc = checkpoint['best_acc']
         print(f"=> loaded checkpoint '{args.checkpoint}' (epoch {start_epoch}) (bestacc {best_acc})")
 
-    with contextlib.suppress(Exception):
-        model.cuda(args.gpu)
+    # with contextlib.suppress(Exception):
+    model.cuda(args.gpu)
 
     if args.distributed:
         torch.cuda.set_device(args.gpu)

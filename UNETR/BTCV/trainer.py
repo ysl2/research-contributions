@@ -9,7 +9,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import contextlib
 import os
 import numpy as np
 import torch
@@ -54,7 +53,7 @@ class AverageMeter(object):
         self.avg = np.where(self.count > 0, self.sum / self.count, self.sum)
 
 
-def train_epoch(model, loader, optimizer, scheduler, scaler, epoch, loss_func, args) -> float:
+def train_epoch(model, loader, optimizer, scaler, epoch, loss_func, args) -> float:
     model.train()
     run_loss = AverageMeter()
     for idx, batch_data in enumerate(tqdm(loader, leave=False, dynamic_ncols=True, desc='Train')):
@@ -62,8 +61,7 @@ def train_epoch(model, loader, optimizer, scheduler, scaler, epoch, loss_func, a
             data, target = batch_data
         else:
             data, target = batch_data['image'], batch_data['label']
-        with contextlib.suppress(Exception):
-            data, target = data.cuda(args.rank), target.cuda(args.rank)
+        data, target = data.cuda(args.gpu), target.cuda(args.gpu)
         for param in model.parameters():
             param.grad = None
         with autocast(enabled=args.amp):
@@ -102,8 +100,7 @@ def val_epoch(
             else:
                 data, target = batch_data['image'], batch_data['label']
                 yaml_meta_data = batch_data['label_meta_dict']['yaml_meta_data']
-            with contextlib.suppress(Exception):
-                data, target = data.cuda(args.rank), target.cuda(args.rank)
+            data, target = data.cuda(args.gpu), target.cuda(args.gpu)
             with autocast(enabled=args.amp):
                 batch_data['pred'] = model_inferer(data) if model_inferer is not None else model(data)
                 logits = batch_data['pred']
@@ -114,8 +111,7 @@ def val_epoch(
             val_outputs_list = decollate_batch(logits)
             val_outputs_convert = [post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list]
             acc = acc_func(y_pred=val_outputs_convert, y=val_labels_convert)
-            with contextlib.suppress(Exception):
-                acc = acc.cuda(args.rank)
+            acc = acc.cuda(args.gpu)
 
             if args.distributed:
                 acc_list = distributed_all_gather([acc], out_numpy=True, is_valid=idx < loader.sampler.valid_length)
@@ -175,7 +171,6 @@ def run_training(
             train_loader,
             optimizer,
             scaler=scaler,
-            scheduler=scheduler,
             epoch=epoch,
             loss_func=loss_func,
             args=args,
@@ -200,8 +195,7 @@ def run_training(
                 post_invert=post_invert,
             )
             if args.rank == 0:
-                with contextlib.suppress(Exception):
-                    writer.add_scalar('val_acc', val_avg_acc, epoch)
+                writer.add_scalar('val_acc', val_avg_acc, epoch)
                 if val_avg_acc > val_acc_max:
                     epoch_max = epoch
                     print(f'new best ({val_acc_max:.6f} --> {val_avg_acc:.6f}) on epoch {epoch_max}')

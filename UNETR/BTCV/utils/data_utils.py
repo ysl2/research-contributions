@@ -80,48 +80,44 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
         [
             dl.LoadImaged(keys=["image", "label"], func=yusongli_load_data),
             transforms.AddChanneld(keys=["image", "label"]),
-            # transforms.Resized(keys=['image', 'label'], spatial_size=[args.roi_x, args.roi_y, args.roi_z]),
-            transforms.Orientationd(keys=["image", "label"], axcodes="RAS"),
-            transforms.Spacingd(
-                keys=["image", "label"], pixdim=(args.space_x, args.space_y, args.space_z), mode=("bilinear", "nearest")
-            ),
+            transforms.Resized(keys=['image', 'label'], spatial_size=[args.roi_x, args.roi_y, args.roi_z]),
+            # ? Intensity
             transforms.ScaleIntensityRanged(
                 keys=["image"], a_min=args.a_min, a_max=args.a_max, b_min=args.b_min, b_max=args.b_max, clip=True
             ),
-            transforms.CropForegroundd(keys=["image", "label"], source_key="image"),
-            # transforms.RandCropByPosNegLabeld(
-            #     keys=["image", "label"],
-            #     label_key="label",
-            #     spatial_size=(args.roi_x, args.roi_y, args.roi_x),
-            #     pos=1,
-            #     neg=1,
-            #     num_samples=4,
-            #     image_key="image",
-            #     image_threshold=0,
-            # ),
-            transforms.RandFlipd(keys=["image", "label"], prob=args.RandFlipd_prob, spatial_axis=0),
-            transforms.RandFlipd(keys=["image", "label"], prob=args.RandFlipd_prob, spatial_axis=1),
-            transforms.RandFlipd(keys=["image", "label"], prob=args.RandFlipd_prob, spatial_axis=2),
-            transforms.RandRotate90d(keys=["image", "label"], prob=args.RandRotate90d_prob, max_k=3,),
-            transforms.RandScaleIntensityd(keys="image", factors=0.1, prob=args.RandScaleIntensityd_prob),
-            transforms.RandShiftIntensityd(keys="image", offsets=0.1, prob=args.RandShiftIntensityd_prob),
-            transforms.ToTensord(keys=["image", "label"]),
+            # ? Shape
+            transforms.RandFlipd(keys=['image', 'label'], prob=args.RandFlipd_prob, spatial_axis=0),
+            transforms.RandFlipd(keys=['image', 'label'], prob=args.RandFlipd_prob, spatial_axis=1),
+            transforms.RandFlipd(keys=['image', 'label'], prob=args.RandFlipd_prob, spatial_axis=2),
+            transforms.RandZoomd(keys=['image', 'label']),
+            transforms.RandRotated(keys=['image', 'label']),
+            # transforms.RandRotate90d(keys=['image', 'label']),
+            transforms.RandAffined(keys=['image', 'label']),
+            transforms.Rand3DElasticd(keys=['image', 'label'], sigma_range=(5, 7), magnitude_range=(50, 150)),
+            transforms.RandGridDistortiond(keys=['image', 'label']),
+            # ? Noise
+            transforms.RandGibbsNoised(keys=['image']),
+            transforms.RandGaussianNoised(keys=['image']),
+            # transforms.RandKSpaceSpikeNoised(keys=['image']),
+            transforms.RandAdjustContrastd(keys=['image']),
+            transforms.RandGaussianSmoothd(keys=['image']),
+            transforms.RandGaussianSharpend(keys=['image']),
+            transforms.RandHistogramShiftd(keys=['image']),
+            transforms.RandCoarseDropoutd(keys=['image'], holes=1, max_holes=10, spatial_size=1, max_spatial_size=4),
+            transforms.RandCoarseShuffled(keys=['image'], holes=1, max_holes=10, spatial_size=1, max_spatial_size=4),
+            # ? Size
+            transforms.ToTensord(keys=["image", "label"], dtype=torch.float32),
         ]
     )
     val_transform = transforms.Compose(
         [
             dl.LoadImaged(keys=["image", "label"], func=yusongli_load_data),
             transforms.AddChanneld(keys=["image", "label"]),
-            # transforms.Resized(keys=['image', 'label'], spatial_size=[args.roi_x, args.roi_y, args.roi_z]),
-            transforms.Orientationd(keys=["image", "label"], axcodes="RAS"),
-            transforms.Spacingd(
-                keys=["image", "label"], pixdim=(args.space_x, args.space_y, args.space_z), mode=("bilinear", "nearest")
-            ),
             transforms.ScaleIntensityRanged(
                 keys=["image"], a_min=args.a_min, a_max=args.a_max, b_min=args.b_min, b_max=args.b_max, clip=True
             ),
-            transforms.CropForegroundd(keys=["image", "label"], source_key="image"),
-            transforms.ToTensord(keys=["image", "label"]),
+            transforms.Resized(keys=['image', 'label'], spatial_size=[args.roi_x, args.roi_y, args.roi_z]),
+            transforms.ToTensord(keys=["image", "label"], dtype=torch.float32),
         ]
     )
 
@@ -154,64 +150,60 @@ def get_loader(args: argparse.ArgumentParser) -> monai.data.DataLoader:
             val_transform,
         ]
 
-    else:
-        datalist = dl.load_decathlon_datalist(datalist_json, True, "training", base_dir=data_dir)
-        train_ds = (
-            data.Dataset(data=datalist, transform=train_transform)
-            if args.use_normal_dataset
-            else data.CacheDataset(
-                data=datalist,
-                transform=train_transform,
-                cache_num=args.trainset_cache_num,
-                cache_rate=1.0,
-                num_workers=args.workers,
-            )
-        )
-
-        train_sampler = Sampler(train_ds) if args.distributed else None
-        train_loader = data.DataLoader(
-            train_ds,
-            batch_size=args.batch_size,
-            shuffle=(train_sampler is None),
+    datalist = dl.load_decathlon_datalist(datalist_json, True, "training", base_dir=data_dir)
+    train_ds = (
+        data.Dataset(data=datalist, transform=train_transform)
+        if args.use_normal_dataset
+        else data.CacheDataset(
+            data=datalist,
+            transform=train_transform,
+            cache_num=args.trainset_cache_num,
+            cache_rate=1.0,
             num_workers=args.workers,
-            sampler=train_sampler,
-            pin_memory=True,
-            persistent_workers=True,
         )
-        val_files = dl.load_decathlon_datalist(datalist_json, True, "validation", base_dir=data_dir)
-        # val_ds = data.Dataset(data=val_files, transform=val_transform)
-        val_ds = (
-            data.Dataset(data=val_files, transform=val_transform)
-            if args.use_normal_dataset
-            else data.CacheDataset(
-                data=val_files,
-                transform=val_transform,
-                cache_num=args.valset_cache_num,
-                cache_rate=1.0,
-                num_workers=args.workers,
-            )
-        )
-        val_sampler = Sampler(val_ds, shuffle=False) if args.distributed else None
-        val_loader = data.DataLoader(
-            val_ds,
-            batch_size=1,
-            shuffle=False,
+    )
+
+    train_sampler = Sampler(train_ds) if args.distributed else None
+    train_loader = data.DataLoader(
+        train_ds,
+        batch_size=args.batch_size,
+        shuffle=(train_sampler is None),
+        num_workers=args.workers,
+        sampler=train_sampler,
+        pin_memory=True,
+        persistent_workers=True,
+    )
+    val_files = dl.load_decathlon_datalist(datalist_json, True, "validation", base_dir=data_dir)
+    val_ds = (
+        data.Dataset(data=val_files, transform=val_transform)
+        if args.use_normal_dataset
+        else data.CacheDataset(
+            data=val_files,
+            transform=val_transform,
+            cache_num=args.valset_cache_num,
+            cache_rate=1.0,
             num_workers=args.workers,
-            sampler=val_sampler,
-            pin_memory=True,
-            persistent_workers=True,
         )
-        return [train_loader, val_loader, train_transform, val_transform]
+    )
+    val_sampler = Sampler(val_ds, shuffle=False) if args.distributed else None
+    val_loader = data.DataLoader(
+        val_ds,
+        batch_size=1,
+        shuffle=False,
+        num_workers=args.workers,
+        sampler=val_sampler,
+        pin_memory=True,
+        persistent_workers=True,
+    )
+    return [train_loader, val_loader, train_transform, val_transform]
 
 
-_DATAPATH = '/home/yusongli/Public/sda1/_dataset/shidaoai/img/_out'
+# _DATAPATH = '/home/yusongli/Public/sda1/_dataset/shidaoai/img/_out'
+_DATAPATH = '/home/yusongli/_dataset/shidaoai/img/_out'
 
 
 def yusongli_rootdir(args: argparse.ArgumentParser) -> str:
-    return os.path.join(
-        f'{_DATAPATH}',
-        f'wangqifeng-spacial-dilated-net_{args.model_name}_val',
-    )
+    return os.path.join(f'{_DATAPATH}', f'wangqifeng-spacial-dilated-net_{args.model_name}_val',)
 
 
 def yusongli_load_data(yamlmetadata: List) -> Tuple[str]:
@@ -219,20 +211,17 @@ def yusongli_load_data(yamlmetadata: List) -> Tuple[str]:
     if _key == 'image':
         objpath = f'{_DATAPATH}/wangqifeng-spacial/{_where}/{_who}/{_number}/{_name}'
     elif _key == 'label':
-        objpath = f'{_DATAPATH}/wangqifeng-spacial-dilated-maskonly/{_where}/{_who}/{_number}/{_name}'
+        objpath = f'{_DATAPATH}/wangqifeng-spacial-dilated_maskonly/{_where}/{_who}/{_number}/{_name}'
     return (objpath,)
 
 
 def yusongli_save_pred(yamlmetadata: List, epoch: int, rootdir: str) -> str:
     for i in range(len(yamlmetadata)):
-        if isinstance(yamlmetadata[i], tuple):
+        if isinstance(yamlmetadata[i], (tuple, list)) and len(yamlmetadata[i]) == 1:
             yamlmetadata[i] = yamlmetadata[i][0]
     _where, _who, _number, _name = yamlmetadata[2:6]
 
-    return os.path.join(
-        f'{rootdir}',
-        f'{epoch:02d}/{_where}/{_who}/{_number}/{_name}.nii.gz'
-    )
+    return os.path.join(f'{rootdir}', f'{epoch:02d}/{_where}/{_who}/{_number}/{_name}.nii.gz')
 
 
 if __name__ == '__main__':

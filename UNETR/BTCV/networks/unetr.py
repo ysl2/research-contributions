@@ -203,7 +203,6 @@ class UNETR(nn.Module):
             self.vit.norm.weight.copy_(weights['state_dict']['module.transformer.norm.weight'])
             self.vit.norm.bias.copy_(weights['state_dict']['module.transformer.norm.bias'])
 
-
     def forward(self, x_in):
         x, hidden_states_out = self.vit(x_in)
         enc1 = self.encoder1(x_in)
